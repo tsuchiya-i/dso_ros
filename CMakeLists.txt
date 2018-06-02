@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   cv_bridge
+  pcl_ros
 )
 
 set(DSO_PATH $ENV{DSO_PATH})
@@ -30,6 +31,7 @@ catkin_package(
     roscpp
     sensor_msgs
     cv_bridge
+    pcl_ros
 )
 
 ###########
