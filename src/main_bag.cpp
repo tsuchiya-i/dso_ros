@@ -22,9 +22,6 @@
 */
 
 
-
-
-
 #include <locale.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -238,39 +235,21 @@ void vidCb(const sensor_msgs::ImageConstPtr img)
 	fullSystem->addActiveFrame(undistImg, frameID);
 	frameID++;
 	delete undistImg;
+
 }
 
-void read_calib(ros::NodeHandle& nh, ros::NodeHandle& pnh) {
-  ROS_INFO("waiting for camera_info msg...");
-  auto camera_info_msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("camera_info", ros::Duration(10.0));
 
-  if(camera_info_msg == nullptr) {
-    ROS_INFO("failed to receive camera_info...");
-    return;
-  }
 
-  calib = "/tmp/dso_calib.txt";
-  std::ofstream calib_ofs(calib);
-  calib_ofs << "RadTan "
-            << camera_info_msg->K[0] << " " << camera_info_msg->K[4] << " " << camera_info_msg->K[2] << " " << camera_info_msg->K[5] << " "
-            << camera_info_msg->D[0] << " " << camera_info_msg->D[1] << " " << camera_info_msg->D[2] << " " << camera_info_msg->D[3] << std::endl;
-  calib_ofs << camera_info_msg->width << " " << camera_info_msg->height << std::endl;
-  calib_ofs << "crop" << std::endl;
-  calib_ofs << pnh.param<int>("crop_width", 640) << " " << pnh.param<int>("crop_height", 480) << std::endl;
-  calib_ofs.close();
-}
+
 
 int main( int argc, char** argv )
 {
 	ros::init(argc, argv, "dso_live");
-  ros::NodeHandle nh;
-  ros::NodeHandle pnh("~");
+
+
 
 	for(int i=1; i<argc;i++) parseArgument(argv[i]);
 
-  if(calib.empty()) {
-    read_calib(nh, pnh);
-  }
 
 	setting_desiredImmatureDensity = 1000;
 	setting_desiredPointDensity = 1200;
@@ -281,10 +260,13 @@ int main( int argc, char** argv )
 	setting_logStuff = false;
 	setting_kfGlobalWeight = 1.3;
 
+
 	printf("MODE WITH CALIBRATION, but without exposure times!\n");
 	setting_photometricCalibration = 2;
 	setting_affineOptModeA = 0;
 	setting_affineOptModeB = 0;
+
+
 
     undistorter = Undistort::getUndistorterForFile(calib, gammaFile, vignetteFile);
     setGlobalCalib(
@@ -310,6 +292,7 @@ int main( int argc, char** argv )
     if(undistorter->photometricUndist != 0)
     	fullSystem->setGammaFunction(undistorter->photometricUndist->getG());
 
+    ros::NodeHandle nh;
     ros::Subscriber imgSub = nh.subscribe("image", 1, &vidCb);
     fullSystem->outputWrapper.push_back(new PosePublisher(nh));
     fullSystem->outputWrapper.push_back(new PointCloudPublisher(nh));

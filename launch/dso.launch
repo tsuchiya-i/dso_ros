@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="dso_ros" name="dso_live" type="dso_live" output="screen">
+    <remap from="image" to="/camera/image_raw"/>
+    <remap from="camera_info" to="/camera/camera_info"/>
+    <param name="crop_width" value="640"/>
+    <param name="crop_height" value="480"/>
+  </node>
+</launch>
