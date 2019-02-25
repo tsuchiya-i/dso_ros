@@ -44,6 +44,7 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <image_transport/image_transport.h>
 #include <pcl_ros/point_cloud.h>
 #include "cv_bridge/cv_bridge.h"
 
@@ -96,8 +97,11 @@ public:
       return;
     }
 
+    double timestamp = 0;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
     for(const auto* frame : frames) {
+      timestamp = frame->timestamp;
+
       double fxi = HCalib->fxli();
       double fyi = HCalib->fyli();
       double cxi = HCalib->cxli();
@@ -119,11 +123,20 @@ public:
       }
     }
 
-    cloud->header.frame_id = "world";
     cloud->width = cloud->size();
     cloud->height = 1;
     cloud->is_dense = false;
-    points_pub.publish(cloud);
+
+    if(cloud->empty()) {
+        return;
+    }
+
+    sensor_msgs::PointCloud2Ptr cloud_msg(new sensor_msgs::PointCloud2());
+    pcl::toROSMsg(*cloud, *cloud_msg);
+    cloud_msg->header.frame_id = "world";
+    cloud_msg->header.stamp = ros::Time(timestamp);
+
+    points_pub.publish(cloud_msg);
   }
 
 private:
@@ -242,18 +255,34 @@ void vidCb(const sensor_msgs::ImageConstPtr img)
 
 void read_calib(ros::NodeHandle& nh, ros::NodeHandle& pnh) {
   ROS_INFO("waiting for camera_info msg...");
-  auto camera_info_msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("camera_info", ros::Duration(10.0));
+  sensor_msgs::CameraInfo::ConstPtr camera_info_msg;
+  for(int i=0; i<5; i++) {
+  	camera_info_msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("camera_info", ros::Duration(10.0));
+    if(camera_info_msg == nullptr) {
+      ROS_INFO("failed to receive camera_info...");
+    } else {
+    	break;
+    }
+  }
 
   if(camera_info_msg == nullptr) {
     ROS_INFO("failed to receive camera_info...");
-    return;
+    abort();
   }
+
+
+  bool rectified = pnh.param<bool>("rectified", false);
 
   calib = "/tmp/dso_calib.txt";
   std::ofstream calib_ofs(calib);
-  calib_ofs << "RadTan "
-            << camera_info_msg->K[0] << " " << camera_info_msg->K[4] << " " << camera_info_msg->K[2] << " " << camera_info_msg->K[5] << " "
-            << camera_info_msg->D[0] << " " << camera_info_msg->D[1] << " " << camera_info_msg->D[2] << " " << camera_info_msg->D[3] << std::endl;
+  if(!rectified) {
+    calib_ofs << "RadTan "
+              << camera_info_msg->K[0] << " " << camera_info_msg->K[4] << " " << camera_info_msg->K[2] << " " << camera_info_msg->K[5] << " "
+              << camera_info_msg->D[0] << " " << camera_info_msg->D[1] << " " << camera_info_msg->D[2] << " " << camera_info_msg->D[3] << std::endl;
+  } else {
+    calib_ofs << "Pinhole "
+              << camera_info_msg->K[0] << " " << camera_info_msg->K[4] << " " << camera_info_msg->K[2] << " " << camera_info_msg->K[5] << " 0" << std::endl;
+  }
   calib_ofs << camera_info_msg->width << " " << camera_info_msg->height << std::endl;
   calib_ofs << "crop" << std::endl;
   calib_ofs << pnh.param<int>("crop_width", 640) << " " << pnh.param<int>("crop_height", 480) << std::endl;
@@ -310,7 +339,10 @@ int main( int argc, char** argv )
     if(undistorter->photometricUndist != 0)
     	fullSystem->setGammaFunction(undistorter->photometricUndist->getG());
 
-    ros::Subscriber imgSub = nh.subscribe("image", 1, &vidCb);
+    // ros::Subscriber imgSub = nh.subscribe("image", 1, &vidCb);
+    image_transport::ImageTransport it(nh);
+    image_transport::Subscriber sub = it.subscribe("image", 15, &vidCb);
+
     fullSystem->outputWrapper.push_back(new PosePublisher(nh));
     fullSystem->outputWrapper.push_back(new PointCloudPublisher(nh));
 

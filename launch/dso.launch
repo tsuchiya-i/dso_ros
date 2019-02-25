@@ -2,8 +2,11 @@
 <launch>
   <node pkg="dso_ros" name="dso_live" type="dso_live" output="screen">
     <remap from="image" to="/camera/image_raw"/>
+    <remap from="image/compressed" to="/camera/image_raw/compressed"/>
     <remap from="camera_info" to="/camera/camera_info"/>
-    <param name="crop_width" value="640"/>
-    <param name="crop_height" value="480"/>
+    <param name="image_transport" value="raw"/>
+    <param name="rectified" value="false"/>
+    <param name="crop_width" value="960"/>
+    <param name="crop_height" value="540"/>
   </node>
 </launch>

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.4.6)
 project(dso_ros)
 
 find_package(catkin REQUIRED COMPONENTS
+  image_transport
   geometry_msgs
   roscpp
   sensor_msgs
@@ -27,6 +28,7 @@ find_library(DSO_LIBRARY dso ${DSO_PATH}/build/lib)
 
 catkin_package(
   CATKIN_DEPENDS
+    image_transport
     geometry_msgs
     roscpp
     sensor_msgs
