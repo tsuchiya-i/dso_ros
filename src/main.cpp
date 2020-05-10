@@ -85,63 +85,55 @@ private:
   ros::Publisher pose_pub;
 };
 
+//fixed class
 class PointCloudPublisher : public dso::IOWrap::Output3DWrapper {
 public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   PointCloudPublisher(ros::NodeHandle& nh)
     : points_pub(nh.advertise<sensor_msgs::PointCloud2>("points", 10))
   {}
-
+ 
   // publish point cloud
   void publishKeyframes(std::vector<FrameHessian*> &frames, bool final, CalibHessian* HCalib) {
     if(!final) {
       return;
     }
-
-    double timestamp = 0;
+ 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
     for(const auto* frame : frames) {
-      timestamp = frame->timestamp;
-
+      // convert [u, v, depth] to [x, y, z]
       double fxi = HCalib->fxli();
       double fyi = HCalib->fyli();
       double cxi = HCalib->cxli();
       double cyi = HCalib->cyli();
       auto const & cam2world=  frame->shell->camToWorld.matrix3x4();
-
+ 
       for (auto const* p : frame->pointHessiansMarginalized) {
-      // convert [u, v, depth] to [x, y, z]
         float depth = 1.0f / p->idepth;
         auto const x = (p->u * fxi + cxi) * depth;
         auto const y = (p->v * fyi + cyi) * depth;
         auto const z = depth * (1 + 2*fxi);
-
+ 
         Eigen::Vector3d world_point = cam2world * Eigen::Vector4d(x, y, z, 1.f);
-
+ 
         pcl::PointXYZ pt;
         pt.getVector3fMap() = world_point.cast<float>();
         cloud->push_back(pt);
       }
     }
-
+ 
+    cloud->header.frame_id = "world";
     cloud->width = cloud->size();
     cloud->height = 1;
     cloud->is_dense = false;
-
-    if(cloud->empty()) {
-        return;
-    }
-
-    sensor_msgs::PointCloud2Ptr cloud_msg(new sensor_msgs::PointCloud2());
-    pcl::toROSMsg(*cloud, *cloud_msg);
-    cloud_msg->header.frame_id = "world";
-    cloud_msg->header.stamp = ros::Time(timestamp);
-
-    points_pub.publish(cloud_msg);
+    points_pub.publish(cloud);
   }
-
+ 
 private:
   ros::Publisher points_pub;
 };
+
+
 
 void parseArgument(char* arg)
 {
