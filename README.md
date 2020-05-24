@@ -30,8 +30,8 @@ To access computed information in real-time, I recommend to implement your own O
 everything as described in the DSO project - only this is for real-time camera input.
 
 
-		rosrun dso_ros dso_live image:=image_raw \
-			calib=XXXXX/camera.txt \
+		rosrun dso_ros dso_live image:=/camera/color/image_raw \
+			calib=~/tsuchiya_ws/camera.txt \
 			gamma=XXXXX/pcalib.txt \
 			vignette=XXXXX/vignette.png \
 
